@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<title>School Life 3D</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+html,body{
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    font-family:Arial,sans-serif;
+    background:#87bde5;
+}
+
+#game{
+    width:100%;
+    height:100%;
+    position:relative;
+}
+
+canvas{
+    display:block;
+    width:100%;
+    height:100%;
+    touch-action:none;
+}
+
+/* TOP HUD */
+
+#topBar{
+    position:absolute;
+    top:15px;
+    left:15px;
+    right:15px;
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+
+    pointer-events:none;
+    z-index:5;
+}
+
+.hud{
+    background:rgba(0,0,0,.60);
+    color:white;
+
+    padding:10px 15px;
+    border-radius:12px;
+
+    font-size:14px;
+
+    backdrop-filter:blur(6px);
+}
+
+/* MOBILE JOYSTICK */
+
+#joystick{
+    position:absolute;
+
+    left:25px;
+    bottom:30px;
+
+    width:130px;
+    height:130px;
+
+    border-radius:50%;
+
+    background:rgba(255,255,255,.12);
+    border:2px solid rgba(255,255,255,.35);
+
+    z-index:10;
+
+    touch-action:none;
+}
+
+#stick{
+    position:absolute;
+
+    width:58px;
+    height:58px;
+
+    left:34px;
+    top:34px;
+
+    border-radius:50%;
+
+    background:rgba(255,255,255,.65);
+
+    box-shadow:0 3px 12px rgba(0,0,0,.25);
+}
+
+/* BUTTONS */
+
+#buttons{
+    position:absolute;
+
+    right:25px;
+    bottom:35px;
+
+    display:flex;
+    gap:14px;
+
+    z-index:10;
+}
+
+.gameButton{
+
+    width:68px;
+    height:68px;
+
+    border-radius:50%;
+
+    border:1px solid rgba(255,255,255,.3);
+
+    background:rgba(0,0,0,.65);
+
+    color:white;
+
+    font-weight:bold;
+
+    cursor:pointer;
+
+    touch-action:none;
+}
+
+.gameButton:active{
+    transform:scale(.93);
+}
+
+/* HELP */
+
+#help{
+
+    position:absolute;
+
+    bottom:15px;
+
+    left:50%;
+
+    transform:translateX(-50%);
+
+    background:rgba(0,0,0,.55);
+
+    color:white;
+
+    padding:8px 13px;
+
+    border-radius:10px;
+
+    font-size:12px;
+
+    z-index:5;
+
+}
+
+@media(max-width:600px){
+
+    #help{
+        display:none;
+    }
+
+    #joystick{
+        left:15px;
+        bottom:20px;
+    }
+
+    #buttons{
+        right:15px;
+        bottom:25px;
+    }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+    <div id="topBar">
+
+        <div class="hud">
+            🏫 SCHOOL LIFE 3D
+        </div>
+
+        <div class="hud" id="mission">
+            Mission: Explore the school
+        </div>
+
+    </div>
+
+
+    <div id="joystick">
+        <div id="stick"></div>
+    </div>
+
+
+    <div id="buttons">
+
+        <button class="gameButton" id="jumpButton">
+            JUMP
+        </button>
+
+        <button class="gameButton" id="talkButton">
+            TALK
+        </button>
+
+    </div>
+
+
+    <div id="help">
+        WASD / Arrow Keys • SPACE = Jump • E = Talk
+    </div>
+
+</div>
+
+
+<script type="module">
+
+/* =========================================
+   THREE.JS
+========================================= */
+
+import * as THREE from
+"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+
+
+/* =========================================
+   SCENE
+========================================= */
+
+const scene = new THREE.Scene();
+
+scene.background =
+new THREE.Color(0x87bde5);
+
+scene.fog =
+new THREE.Fog(
+    0x87bde5,
+    45,
+    140
+);
+
+
+/* =========================================
+   CAMERA
+========================================= */
+
+const camera =
+new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth /
+    window.innerHeight,
+    0.1,
+    300
+);
+
+camera.position.set(
+    0,
+    5,
+    10
+);
+
+
+/* =========================================
+   RENDERER
+========================================= */
+
+const renderer =
+new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setPixelRatio(
+    Math.min(
+        window.devicePixelRatio,
+        2
+    )
+);
+
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
+renderer.shadowMap.enabled = true;
+
+renderer.shadowMap.type =
+THREE.PCFSoftShadowMap;
+
+document
+.getElementById("game")
+.prepend(renderer.domElement);
+
+
+/* =========================================
+   LIGHTING
+========================================= */
+
+const skyLight =
+new THREE.HemisphereLight(
+    0xc8e8ff,
+    0x536d42,
+    2
+);
+
+scene.add(skyLight);
+
+
+const sun =
+new THREE.DirectionalLight(
+    0xffffff,
+    3
+);
+
+sun.position.set(
+    -30,
+    40,
+    20
+);
+
+sun.castShadow = true;
+
+sun.shadow.mapSize.width = 2048;
+sun.shadow.mapSize.height = 2048;
+
+sun.shadow.camera.left = -80;
+sun.shadow.camera.right = 80;
+sun.shadow.camera.top = 80;
+sun.shadow.camera.bottom = -80;
+
+scene.add(sun);
+
+
+/* =========================================
+   MATERIALS
+========================================= */
+
+const grassMaterial =
+new THREE.MeshStandardMaterial({
+    color:0x6f9f58
+});
+
+
+const roadMaterial =
+new THREE.MeshStandardMaterial({
+    color:0x454b52
+});
+
+
+const buildingMaterial =
+new THREE.MeshStandardMaterial({
+    color:0xe9e1d5
+});
+
+
+const roofMaterial =
+new THREE.MeshStandardMaterial({
+    color:0x8d4a52
+});
+
+
+const windowMaterial =
+new THREE.MeshStandardMaterial({
+    color:0x75bfdc,
+    roughness:.25,
+    metalness:.1
+});
+
+
+const treeMaterial =
+new THREE.MeshStandardMaterial({
+    color:0x3f7d45
+});
+
+
+const trunkMaterial =
+new THREE.MeshStandardMaterial({
+    color:0x62452f
+});
+
+
+const skinMaterial =
+new THREE.MeshStandardMaterial({
+    color:0xe6ad89
+});
+
+
+const hairMaterial =
+new THREE.MeshStandardMaterial({
+    color:0x251d1a
+});
+
+
+const uniformMaterial =
+new THREE.MeshStandardMaterial({
+    color:0x315d9b
+});
+
+
+const darkMaterial =
+new THREE.MeshStandardMaterial({
+    color:0x202631
+});
+
+
+const shoeMaterial =
+new THREE.MeshStandardMaterial({
+    color:0x16191d
+});
+
+
+const whiteMaterial =
+new THREE.MeshStandardMaterial({
+    color:0xf2eee5
+});
+
+
+/* =========================================
+   BASIC FUNCTIONS
+========================================= */
+
+function createBox(
+    x,
+    y,
+    z,
+    width,
+    height,
+    depth,
+    material
+){
+
+    const geometry =
+    new THREE.BoxGeometry(
+        width,
+        height,
+        depth
+    );
+
+    const object =
+    new THREE.Mesh(
+        geometry,
+        material
+    );
+
+    object.position.set(
+        x,
+        y,
+        z
+    );
+
+    object.castShadow = true;
+    object.receiveShadow = true;
+
+    scene.add(object);
+
+    return object;
+}
+
+
+function createCylinder(
+    x,
+    y,
+    z,
+    radius,
+    height,
+    material
+){
+
+    const geometry =
+    new THREE.CylinderGeometry(
+        radius,
+        radius,
+        height,
+        16
+    );
+
+    const object =
+    new THREE.Mesh(
+        geometry,
+        material
+    );
+
+    object.position.set(
+        x,
+        y,
+        z
+    );
+
+    object.castShadow = true;
+    object.receiveShadow = true;
+
+    scene.add(object);
+
+    return object;
+}
+
+
+/* =========================================
+   WORLD
+========================================= */
+
+createBox(
+    0,
+    -0.25,
+    0,
+    180,
+    .5,
+    180,
+    grassMaterial
+);
+
+
+/* MAIN ROAD */
+
+createBox(
+    0,
+    .02,
+    8,
+    180,
+    .08,
+    11,
+    roadMaterial
+);
+
+
+/* ROAD MARKINGS */
+
+for(
+    let x=-80;
+    x<80;
+    x+=14
+){
+
+    createBox(
+        x,
+        .08,
+        8,
+        7,
+        .03,
+        .35,
+        whiteMaterial
+    );
+
+}
+
+
+/* =========================================
+   BUILDINGS
+========================================= */
+
+function createBuilding(
+    x,
+    z,
+    width,
+    depth,
+    height
+){
+
+    createBox(
+        x,
+        height/2,
+        z,
+        width,
+        height,
+        depth,
+        buildingMaterial
+    );
+
+
+    createBox(
+        x,
+        height+.2,
+        z,
+        width+.4,
+        .4,
+        depth+.4,
+        roofMaterial
+    );
+
+
+    /* WINDOWS */
+
+    for(
+        let i=-1;
+        i<=1;
+        i++
+    ){
+
+        createBox(
+            x + i*(width*.28),
+            height*.58,
+            z-depth/2-.05,
+            width*.13,
+            height*.2,
+            .08,
+            windowMaterial
+        );
+
+
+        createBox(
+            x + i*(width*.28),
+            height*.32,
+            z-depth/2-.05,
+            width*.13,
+            height*.2,
+            .08,
+            windowMaterial
+        );
+
+    }
+
+
+    /* DOOR */
+
+    createBox(
+        x,
+        height*.25,
+        z-depth/2-.08,
+        2.6,
+        height*.5,
+        .25,
+        darkMaterial
+    );
+
+}
+
+
+/* SCHOOL */
+
+createBuilding(
+    0,
+    -35,
+    32,
+    17,
+    10
+);
+
+
+/* GYM */
+
+createBuilding(
+    -35,
+    -27,
+    15,
+    13,
+    7
+);
+
+
+/* CAFETERIA */
+
+createBuilding(
+    34,
+    -27,
+    16,
+    13,
+    7
+);
+
+
+/* DORM */
+
+createBuilding(
+    32,
+    13,
+    17,
+    13,
+    7
+);
+
+
+/* =========================================
+   TREES
+========================================= */
+
+function createTree(x,z){
+
+    createCylinder(
+        x,
+        2,
+        z,
+        .45,
+        4,
+        trunkMaterial
+    );
+
+
+    const crown =
+    new THREE.Mesh(
+        new THREE.SphereGeometry(
+            2.4,
+            18,
+            14
+        ),
+        treeMaterial
+    );
+
+    crown.position.set(
+        x,
+        5,
+        z
+    );
+
+    crown.castShadow = true;
+
+    scene.add(crown);
+
+}
+
+
+for(
+    let x=-70;
+    x<=70;
+    x+=14
+){
+
+    createTree(
+        x,
+        -3
+    );
+
+    createTree(
+        x,
+        32
+    );
+
+}
+
+
+for(
+    let z=-55;
+    z<=45;
+    z+=14
+){
+
+    createTree(
+        -70,
+        z
+    );
+
+    createTree(
+        70,
+        z
+    );
+
+}
+
+
+/* =========================================
+   CHARACTER
+========================================= */
+
+function createCharacter(){
+
+    const character =
+    new THREE.Group();
+
+
+    /* BODY */
+
+    const body =
+    new THREE.Mesh(
+        new THREE.CapsuleGeometry(
+            .48,
+            1.05,
+            8,
+            16
+        ),
+        uniformMaterial
+    );
+
+    body.position.y=1.55;
+
+    body.castShadow=true;
+
+    character.add(body);
+
+
+    /* HEAD */
+
+    const head =
+    new THREE.Mesh(
+        new THREE.SphereGeometry(
+            .46,
+            24,
+            18
+        ),
+        skinMaterial
+    );
+
+    head.position.y=2.75;
+
+    head.castShadow=true;
+
+    character.add(head);
+
+
+    /* HAIR */
+
+    const hair =
+    new THREE.Mesh(
+        new THREE.SphereGeometry(
+            .49,
+            24,
+            14,
+            0,
+            Math.PI*2,
+            0,
+            Math.PI*.58
+        ),
+        hairMaterial
+    );
+
+    hair.position.y=2.94;
+
+    hair.castShadow=true;
+
+    character.add(hair);
+
+
+    /* EYES */
+
+    const eyeMaterial =
+    new THREE.MeshStandardMaterial({
+        color:0x111111
+    });
+
+
+    for(
+        const side of [-1,1]
+    ){
+
+        const eye =
+        new THREE.Mesh(
+            new THREE.SphereGeometry(
+                .045,
+                8,
+                8
+            ),
+            eyeMaterial
+        );
+
+        eye.position.set(
+            side*.16,
+            2.77,
+            -.43
+        );
+
+        character.add(eye);
+
+    }
+
+
+    /* ARMS */
+
+    function limb(
+        x,
+        y,
+        z,
+        radius,
+        height,
+        material
+    ){
+
+        const limb =
+        new THREE.Mesh(
+            new THREE.CapsuleGeometry(
+                radius,
+                height,
+                6,
+                10
+            ),
+            material
+        );
+
+        limb.position.set(
+            x,
+            y,
+            z
+        );
+
+        limb.castShadow=true;
+
+        character.add(limb);
+
+        return limb;
+
+    }
+
+
+    const leftArm =
+    limb(
+        -.65,
+        1.62,
+        0,
+        .14,
+        .85,
+        whiteMaterial
+    );
+
+
+    const rightArm =
+    limb(
+        .65,
+        1.62,
+        0,
+        .14,
+        .85,
+        whiteMaterial
+    );
+
+
+    /* LEGS */
+
+    const leftLeg =
+    limb(
+        -.25,
+        .62,
+        0,
+        .18,
+        .95,
+        darkMaterial
+    );
+
+
+    const rightLeg =
+    limb(
+        .25,
+        .62,
+        0,
+        .18,
+        .95,
+        darkMaterial
+    );
+
+
+    /* SHOES */
+
+    for(
+        const x of [-.25,.25]
+    ){
+
+        const shoe =
+        new THREE.Mesh(
+            new THREE.SphereGeometry(
+                .23,
+                14,
+                10
+            ),
+            shoeMaterial
+        );
+
+        shoe.scale.set(
+            1.3,
+            .55,
+            1.8
+        );
+
+        shoe.position.set(
+            x,
+            .12,
+            -.08
+        );
+
+        shoe.castShadow=true;
+
+        character.add(shoe);
+
+    }
+
+
+    character.userData = {
+
+        leftArm,
+        rightArm,
+        leftLeg,
+        rightLeg
+
+    };
+
+
+    return character;
+
+}
+
+
+/* =========================================
+   PLAYER
+========================================= */
+
+const player =
+createCharacter();
+
+player.position.set(
+    0,
+    0,
+    5
+);
+
+scene.add(player);
+
+
+/* =========================================
+   NPC STUDENTS
+========================================= */
+
+function createStudent(
+    x,
+    z
+){
+
+    const student =
+    createCharacter();
+
+    student.scale.set(
+        .92,
+        .92,
+        .92
+    );
+
+    student.position.set(
+        x,
+        0,
+        z
+    );
+
+    student.rotation.y =
+    Math.PI;
+
+    scene.add(student);
+
+    return student;
+
+}
+
+
+const students=[
+
+    createStudent(-8,-8),
+
+    createStudent(10,-10),
+
+    createStudent(18,4),
+
+    createStudent(-18,2)
+
+];
+
+
+/* =========================================
+   PLAYER CONTROL
+========================================= */
+
+const keys={};
+
+
+window.addEventListener(
+    "keydown",
+    function(event){
+
+        keys[event.key.toLowerCase()]=true;
+
+        if(
+            event.code==="Space"
+        ){
+
+            jump();
+
+        }
+
+
+        if(
+            event.key.toLowerCase()==="e"
+        ){
+
+            talk();
+
+        }
+
+    }
+);
+
+
+window.addEventListener(
+    "keyup",
+    function(event){
+
+        keys[event.key.toLowerCase()]=false;
+
+    }
+);
+
+
+/* =========================================
+   MOBILE JOYSTICK
+========================================= */
+
+const joystick =
+document.getElementById(
+    "joystick"
+);
+
+const stick =
+document.getElementById(
+    "stick"
+);
+
+
+let joystickX=0;
+let joystickY=0;
+
+
+function updateJoystick(event){
+
+    const rect =
+    joystick.getBoundingClientRect();
+
+
+    const centerX =
+    rect.left +
+    rect.width/2;
+
+
+    const centerY =
+    rect.top +
+    rect.height/2;
+
+
+    let dx =
+    event.clientX-centerX;
+
+
+    let dy =
+    event.clientY-centerY;
+
+
+    const max=43;
+
+    const distance =
+    Math.hypot(
+        dx,
+        dy
+    );
+
+
+    if(
+        distance>max
+    ){
+
+        dx =
+        dx/distance*max;
+
+        dy =
+        dy/distance*max;
+
+    }
+
+
+    joystickX =
+    dx/max;
+
+    joystickY =
+    dy/max;
+
+
+    stick.style.transform =
+    `translate(${dx}px,${dy}px)`;
+
+}
+
+
+joystick.addEventListener(
+    "pointerdown",
+    function(event){
+
+        joystick.setPointerCapture(
+            event.pointerId
+        );
+
+        updateJoystick(event);
+
+    }
+);
+
+
+joystick.addEventListener(
+    "pointermove",
+    function(event){
+
+        if(
+            event.buttons
+        ){
+
+            updateJoystick(event);
+
+        }
+
+    }
+);
+
+
+joystick.addEventListener(
+    "pointerup",
+    resetJoystick
+);
+
+
+joystick.addEventListener(
+    "pointercancel",
+    resetJoystick
+);
+
+
+function resetJoystick(){
+
+    joystickX=0;
+    joystickY=0;
+
+    stick.style.transform="";
+
+}
+
+
+/* =========================================
+   JUMP
+========================================= */
+
+let verticalVelocity=0;
+
+let grounded=true;
+
+
+function jump(){
+
+    if(
+        grounded
+    ){
+
+        verticalVelocity=
+        .16;
+
+        grounded=false;
+
+    }
+
+}
+
+
+document
+.getElementById("jumpButton")
+.addEventListener(
+    "click",
+    jump
+);
+
+
+/* =========================================
+   TALK
+========================================= */
+
+function talk(){
+
+    let nearest=null;
+
+    let nearestDistance=100;
+
+
+    for(
+        const student of students
+    ){
+
+        const distance =
+        student.position.distanceTo(
+            player.position
+        );
+
+
+        if(
+            distance<nearestDistance
+        ){
+
+            nearestDistance=
+            distance;
+
+            nearest=student;
+
+        }
+
+    }
+
+
+    const mission =
+    document.getElementById(
+        "mission"
+    );
+
+
+    if(
+        nearest &&
+        nearestDistance<4
+    ){
+
+        mission.textContent =
+        'Student: "Hi! Welcome to our school!"';
+
+    }
+    else{
+
+        mission.textContent =
+        "Mission: Get closer to a student";
+
+    }
+
+}
+
+
+document
+.getElementById("talkButton")
+.addEventListener(
+    "click",
+    talk
+);
+
+
+/* =========================================
+   GAME LOOP
+========================================= */
+
+const clock =
+new THREE.Clock();
+
+
+const movement =
+new THREE.Vector3();
+
+
+function animate(){
+
+    requestAnimationFrame(
+        animate
+    );
+
+
+    const delta =
+    Math.min(
+        clock.getDelta(),
+        .033
+    );
+
+
+    /* MOVEMENT */
+
+    let horizontal =
+    (keys["d"]?1:0) -
+    (keys["a"]?1:0) +
+    joystickX;
+
+
+    let vertical =
+    (keys["s"]?1:0) -
+    (keys["w"]?1:0) +
+    joystickY;
+
+
+    const length =
+    Math.hypot(
+        horizontal,
+        vertical
+    );
+
+
+    if(
+        length>1
+    ){
+
+        horizontal/=length;
+        vertical/=length;
+
+    }
+
+
+    if(
+        length>.05
+    ){
+
+        movement.set(
+            horizontal,
+            0,
+            vertical
+        );
+
+
+        movement.normalize();
+
+
+        player.position.addScaledVector(
+            movement,
+            delta*8
+        );
+
+
+        player.rotation.y =
+        Math.atan2(
+            horizontal,
+            vertical
+        );
+
+
+        /* WALK ANIMATION */
+
+        const time =
+        clock.elapsedTime*10;
+
+
+        player.userData.leftLeg.rotation.x =
+        Math.sin(time)*.45;
+
+
+        player.userData.rightLeg.rotation.x =
+        -Math.sin(time)*.45;
+
+
+        player.userData.leftArm.rotation.x =
+        -Math.sin(time)*.3;
+
+
+        player.userData.rightArm.rotation.x =
+        Math.sin(time)*.3;
+
+    }
+    else{
+
+        player.userData.leftLeg.rotation.x=0;
+
+        player.userData.rightLeg.rotation.x=0;
+
+        player.userData.leftArm.rotation.x=0;
+
+        player.userData.rightArm.rotation.x=0;
+
+    }
+
+
+    /* JUMP PHYSICS */
+
+    verticalVelocity -=
+    delta*.55;
+
+
+    player.position.y +=
+    verticalVelocity;
+
+
+    if(
+        player.position.y<=0
+    ){
+
+        player.position.y=0;
+
+        verticalVelocity=0;
+
+        grounded=true;
+
+    }
+
+
+    /* MAP LIMIT */
+
+    player.position.x =
+    THREE.MathUtils.clamp(
+        player.position.x,
+        -75,
+        75
+    );
+
+
+    player.position.z =
+    THREE.MathUtils.clamp(
+        player.position.z,
+        -70,
+        55
+    );
+
+
+    /* CAMERA */
+
+    const cameraPosition =
+    new THREE.Vector3(
+        player.position.x,
+        player.position.y+5.3,
+        player.position.z+8.8
+    );
+
+
+    camera.position.lerp(
+        cameraPosition,
+        .09
+    );
+
+
+    const lookAt =
+    new THREE.Vector3(
+        player.position.x,
+        player.position.y+1.8,
+        player.position.z
+    );
+
+
+    camera.lookAt(
+        lookAt
+    );
+
+
+    renderer.render(
+        scene,
+        camera
+    );
+
+}
+
+
+/* =========================================
+   START
+========================================= */
+
+animate();
+
+
+/* =========================================
+   RESIZE
+========================================= */
+
+window.addEventListener(
+    "resize",
+    function(){
+
+        camera.aspect =
+        window.innerWidth /
+        window.innerHeight;
+
+        camera.updateProjectionMatrix();
+
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+    }
+);
+
+</script>
+
+</body>
+</html>
